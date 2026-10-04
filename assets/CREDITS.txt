@@ -1,0 +1,32 @@
+音乐版权说明 / Music Credits
+================================
+
+jiangxingzhi.mp3  【当前使用】
+  《将行之》 — 阿哲的音乐信箱
+  来源：https://t1.kugou.com/CBRl09G6V2 （酷狗）
+  ⚠️ 商业发行曲目，有版权。个人生日页内部传阅风险低，
+     但公开传播 / 长期使用请先取得授权，或换用下面两首免版权曲目。
+
+--------------------------------
+
+以下两首为免版权备选（改 js/config.js 的 music.src 即可切换）：
+
+birthday-party.mp3
+  "Party Like It's Your Birthday" — Michael Ramir C.
+  https://mixkit.co/free-stock-music/tag/birthday
+
+birthday-gift.mp3
+  "Birthday Gift" — Michael Ramir C.
+  https://mixkit.co/free-stock-music/tag/birthday
+
+许可：Mixkit Free License
+  - 免费用于个人与商业项目、YouTube / 社媒 / 播客 / 网站 / 线上广告
+  - 无需署名（本文仅为记录来源）
+  - 不可用于：CD / DVD、电子游戏、电视或广播
+  - 完整条款见 https://mixkit.co/license/#musicFree
+
+---
+
+备选：把 js/config.js 里的 music.src 留空，会改用 Web Audio 实时合成的
+《生日快乐》编曲。该旋律已于 2016 年经美国法院判决进入公有领域
+（Public Domain），使用无限制。

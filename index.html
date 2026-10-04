@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>曹丽翘 的生日小站 🎂</title>
+<meta name="description" content="10月10日，来点一根蜡烛，写一句祝福吧～" />
+<meta name="theme-color" content="#F4F0E3" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎂</text></svg>" />
+<link rel="preconnect" href="https://fonts.loli.net" crossorigin />
+<link rel="stylesheet" href="https://fonts.loli.net/css2?family=Noto+Serif+SC:wght@600;900&display=swap" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><span class="dot"></span><span id="brandName">生日小站</span></div>
+</header>
+
+<main>
+  <!-- ============ HERO ============ -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="avatar-wrap">
+        <button class="avatar" id="avatar" aria-label="点头像看看有什么">
+          <span class="avatar-fallback" id="avatarFallback">🎂</span>
+          <img id="avatarImg" alt="" hidden />
+        </button>
+        <span class="avatar-ring" aria-hidden="true"></span>
+        <span class="avatar-hint">戳我一下？</span>
+      </div>
+
+      <p class="hero-kicker" id="heroKicker">🎈 10 月 10 日 · 我的生日</p>
+      <h1 class="hero-title"><span id="heroName">曹丽翘</span> 的生日小站</h1>
+      <p class="hero-sub" id="heroSub">欢迎来到我的生日小站 🕯️</p>
+
+      <div class="countdown" id="countdown" aria-live="polite">
+        <div class="cd-cell"><b id="cdDay">--</b><i>天</i></div>
+        <div class="cd-sep">:</div>
+        <div class="cd-cell"><b id="cdHour">--</b><i>时</i></div>
+        <div class="cd-sep">:</div>
+        <div class="cd-cell"><b id="cdMin">--</b><i>分</i></div>
+        <div class="cd-sep">:</div>
+        <div class="cd-cell"><b id="cdSec">--</b><i>秒</i></div>
+      </div>
+      <p class="countdown-note" id="countdownNote">距离生日还有</p>
+    </div>
+  </section>
+
+  <!-- ============ 蛋糕 + 点蜡烛 ============ -->
+  <section class="section cake-section">
+    <h2 class="section-title"><em>01</em>点亮生日蜡烛</h2>
+    <p class="section-desc">每位朋友可以点一根。点得越多，蛋糕越亮 🔥</p>
+
+    <div class="cake-box">
+      <div class="cake-stage" id="cakeStage">
+        <!-- 蜡烛由 JS 生成 -->
+        <svg class="cake" viewBox="0 0 320 220" role="img" aria-label="生日蛋糕">
+          <defs>
+            <radialGradient id="flameGlow" cx="50%" cy="50%">
+              <stop offset="0%" stop-color="#FFD54F" stop-opacity=".85"/>
+              <stop offset="100%" stop-color="#FFB300" stop-opacity="0"/>
+            </radialGradient>
+          </defs>
+          <ellipse cx="160" cy="215" rx="140" ry="9" fill="#000" opacity=".07"/>
+          <!-- 底层 -->
+          <rect x="46" y="150" width="228" height="52" rx="14" fill="#F6DCC0"/>
+          <rect x="46" y="150" width="228" height="14" rx="7" fill="#FFE9D6"/>
+          <path d="M46 172 q19 12 38 0 t38 0 t38 0 t38 0 t38 0 t38 0 v16 a14 14 0 0 1 -14 14 H60 a14 14 0 0 1 -14 -14 z" fill="#DBA24A" opacity=".9"/>
+          <!-- 中层 -->
+          <rect x="70" y="102" width="180" height="48" rx="12" fill="#F7E8CE"/>
+          <rect x="70" y="102" width="180" height="12" rx="6" fill="#FDF6E5"/>
+          <path d="M70 122 q15 10 30 0 t30 0 t30 0 t30 0 t30 0 t30 0 v14 a12 12 0 0 1 -12 12 H82 a12 12 0 0 1 -12 -12 z" fill="#C9502E" opacity=".85"/>
+          <!-- 顶层（加宽到 144，好插下 19 根蜡烛） -->
+          <rect x="88" y="62" width="144" height="40" rx="10" fill="#FFF3D9"/>
+          <rect x="88" y="62" width="144" height="10" rx="5" fill="#FFF9EC"/>
+          <path d="M88 80 q12 8 24 0 t24 0 t24 0 t24 0 t24 0 t24 0 v12 a10 10 0 0 1 -10 10 H98 a10 10 0 0 1 -10 -10 z" fill="#B9210C" opacity=".82"/>
+          <!-- 蜡烛由 JS 生成，画在 SVG 里所以缩放永不错位 -->
+          <g id="candleGroup"></g>
+        </svg>
+      </div>
+
+      <div class="candle-panel">
+        <div class="candle-count">
+          <b id="candleCount">0</b>
+          <span>根蜡烛已点亮</span>
+        </div>
+        <button class="btn btn-candle" id="lightBtn">
+          <span class="flame">🕯️</span><span id="lightBtnText">点亮一根蜡烛</span>
+        </button>
+        <p class="candle-tip" id="candleTip">你还没点亮哦，点一下试试～</p>
+
+        <!-- 吹蜡烛：只在生日当天出现 -->
+        <div class="blow-box" id="blowBox" hidden>
+          <button class="btn btn-blow" id="blowBtn">💨 帮我吹蜡烛</button>
+          <p class="blow-hint" id="blowHint">对着手机吹一口气，或者长按上面这个按钮</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 写祝福 ============ -->
+  <section class="section">
+    <h2 class="section-title"><em>02</em>给我写句祝福</h2>
+    <p class="section-desc">提交后我会回你一句悄悄话，你的祝福会留在下面的祝福墙上 💛</p>
+
+    <form class="wish-form" id="wishForm" novalidate>
+      <div class="field">
+        <label for="wishName">你的名字</label>
+        <input id="wishName" name="name" type="text" maxlength="20" placeholder="不填就是「匿名好友」" autocomplete="nickname" />
+      </div>
+      <div class="field">
+        <label for="wishText">祝福内容 <span class="counter"><span id="charCount">0</span>/140</span></label>
+        <textarea id="wishText" name="text" rows="4" maxlength="140" required placeholder="生日快乐！愿你今年所有的期待都有回音……"></textarea>
+      </div>
+      <div class="form-foot">
+        <p class="form-note">💛 祝福会公开显示在下面的祝福墙，别写隐私信息哦</p>
+        <button class="btn btn-primary" id="submitBtn" type="submit">送出祝福 🎁</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ============ 祝福墙 ============ -->
+  <section class="section">
+    <div class="wall-head">
+      <h2 class="section-title"><em>03</em>祝福墙</h2>
+      <span class="wall-count"><b id="wallCount">0</b> 条祝福</span>
+    </div>
+    <div class="wall" id="wall">
+      <div class="wall-empty" id="wallEmpty">
+        <p>还没有人留言～</p><small>来做第一个吧 💌</small>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 小游戏：接礼物（写完祝福后解锁） ============ -->
+  <section class="section game-section" id="gameSection">
+    <h2 class="section-title"><em>04</em>接礼物小游戏</h2>
+    <p class="section-desc" id="gameDesc">30 秒接住掉下来的礼物，每接住一个就收到一句祝福 🎮</p>
+
+    <!-- 未解锁 -->
+    <div class="game-lock" id="gameLock">
+      <div class="lock-emoji">🔒</div>
+      <p class="lock-title">先写一句祝福，就能解锁游戏</p>
+      <p class="lock-sub">写完我就把礼物雨送给你 🎁</p>
+      <button class="btn btn-primary" id="goWriteBtn">去写祝福 💌</button>
+    </div>
+
+    <!-- 已解锁 -->
+    <div class="game-body" id="gameBody" hidden>
+      <div class="game-hud">
+        <span class="hud-item">好运 <b id="gBless">0</b> 份</span>
+        <span class="hud-item hud-time">剩余 <b id="gTime">30</b>s</span>
+      </div>
+      <canvas id="gameCanvas" aria-label="接礼物小游戏画面"></canvas>
+      <p class="game-tip" id="gameTip">手指左右拖动接礼物，电脑上用鼠标拖</p>
+      <button class="btn btn-primary game-start" id="gameStartBtn">开始游戏 🎁</button>
+    </div>
+  </section>
+
+  <!-- ============ 刮刮乐 ============ -->
+  <section class="section scratch-section" id="scratchSection">
+    <h2 class="section-title"><em>05</em>刮刮乐</h2>
+    <p class="section-desc">刮开一张卡，看看今天你抽到什么好运 / 任务 / 彩蛋 🎲 不想要可以再刮一张</p>
+
+    <div class="scratch-card" id="scratchCard">
+      <!-- 奖品（一直垫在银层下面，刮开就看到；按钮在揭晓后才出现） -->
+      <div class="scratch-prize" id="scratchPrize">
+        <span class="scratch-tag" id="scratchTag"></span>
+        <p class="scratch-text" id="scratchText"></p>
+        <div class="scratch-actions">
+          <button class="btn btn-ghost" id="scratchShare" type="button">发到祝福墙 💌</button>
+          <button class="btn btn-primary" id="scratchAgain" type="button">再刮一张 🎲</button>
+        </div>
+      </div>
+      <!-- 银层（盖在奖品上面，刮掉才露出来） -->
+      <canvas class="scratch-canvas" id="scratchCanvas"></canvas>
+    </div>
+
+    <p class="scratch-hint">手机上用手指来回蹭，电脑上用鼠标拖。刮不开？<button class="link-btn" id="scratchRevealBtn" type="button">直接揭晓</button></p>
+  </section>
+
+  <footer class="footer">
+    <p>用 ❤️ 和一点点代码做的生日小站</p>
+    <p class="footer-sub"><span id="footerName">曹丽翘</span> · 10 月 10 日</p>
+  </footer>
+</main>
+
+<!-- ============ 弹窗：回礼祝福 ============ -->
+<div class="modal" id="giftModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="giftTitle">
+    <div class="modal-emoji">🎁</div>
+    <h3 id="giftTitle">给你的回礼</h3>
+    <p class="modal-text" id="giftText"></p>
+    <button class="btn btn-primary" data-close>收下这份心意 💛</button>
+  </div>
+</div>
+
+<!-- ============ 弹窗：吹灭蜡烛 ============ -->
+<div class="modal" id="blowModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="blowTitle">
+    <div class="modal-emoji">🕯️</div>
+    <h3 id="blowTitle">蜡烛吹灭啦</h3>
+    <p class="modal-text" id="blowText"></p>
+    <button class="btn btn-primary" data-close>愿望会实现的 ✨</button>
+  </div>
+</div>
+
+<!-- ============ 弹窗：游戏结算 ============ -->
+<div class="modal" id="gameModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="gameTitle">
+    <div class="modal-emoji" id="gameEmoji">🎁</div>
+    <h3 id="gameTitle">收到了一些好运</h3>
+    <p class="modal-text" id="gameText"></p>
+    <button class="btn btn-primary" id="gameToWish">把这份好运写成祝福 💌</button>
+    <button class="btn btn-ghost" id="gameAgain">再接一次 🔁</button>
+  </div>
+</div>
+
+<!-- ============ 弹窗：彩蛋 ============ -->
+<div class="modal" id="eggModal" hidden>
+  <div class="modal-card egg" role="dialog" aria-modal="true" aria-labelledby="eggTitle">
+    <div class="modal-emoji">🎉</div>
+    <h3 id="eggTitle"></h3>
+    <p class="modal-text" id="eggText"></p>
+    <button class="btn btn-primary" data-close>好耶！🎊</button>
+  </div>
+</div>
+
+<!-- 右下角悬浮音乐按钮 -->
+<button class="music-fab" id="songBtn" title="播放生日音乐" aria-label="播放生日音乐">
+  <span class="fab-ico">♪</span>
+</button>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="js/config.js"></script>
+<script src="js/store.js"></script>
+<script src="js/effects.js"></script>
+<script src="js/music.js"></script>
+<script src="js/game.js"></script>
+<script src="js/scratch.js"></script>
+<script src="js/blow.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
