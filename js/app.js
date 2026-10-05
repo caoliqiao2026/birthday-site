@@ -157,17 +157,25 @@ function renderCandleState(candles) {
     : "你还没点亮哦，点一下试试～";
 }
 
-/* ---------------- 4. 祝福墙 ---------------- */
+/* ---------------- 4. 祝福墙 ----------------
+ * 全部留言都渲染，但装在一个固定高度的小窗口里，在里面上下滑动看更多——
+ * 这样祝福再多，整个页面的长度也不会被拉长。 */
 let renderedIds = new Set();
+let wallMessages = [];
 
 function renderWall(messages) {
+  if (messages) wallMessages = messages;
   const wall = $("wall"), empty = $("wallEmpty");
-  $("wallCount").textContent = messages.length;
-  empty.hidden = messages.length > 0;
+  const list = wallMessages;
+  $("wallCount").textContent = list.length;      // 统计显示真实总数
+  empty.hidden = list.length > 0;
+
+  const visible = list;
+  const visibleIds = new Set(visible.map((m) => String(m.id)));
 
   // 只追加新留言，避免整墙闪烁重排
   // 倒序遍历 + prepend：最新的排在最前面
-  messages.slice().reverse().forEach((m, idx) => {
+  visible.slice().reverse().forEach((m, idx) => {
     const id = String(m.id);
     if (renderedIds.has(id)) return;
     renderedIds.add(id);
@@ -189,6 +197,7 @@ function renderWall(messages) {
     txt.textContent = m.text;
 
     card.append(who, txt);
+    if (adminMode) card.appendChild(makeDelBtn(id, card, m));
     if (card.classList.contains("mine")) {
       const tag = document.createElement("span");
       tag.className = "tag"; tag.textContent = "我写的";
@@ -197,11 +206,166 @@ function renderWall(messages) {
     wall.prepend(card); // 新的在最前
   });
 
-  // 清理已删除的（理论上不会，保险起见）
-  const alive = new Set(messages.map((m) => String(m.id)));
+  // 清理：被折叠掉的、以及已经删掉的
   wall.querySelectorAll(".wish-card").forEach((el) => {
-    if (!alive.has(el.dataset.id)) { el.remove(); renderedIds.delete(el.dataset.id); }
+    if (!visibleIds.has(el.dataset.id)) { el.remove(); renderedIds.delete(el.dataset.id); }
   });
+
+  // 增量 prepend 在"补进来的是更旧的卡片"时会错序（旧的被顶到最前面），
+  // 所以最后统一按列表顺序把 DOM 重排一次（appendChild 会移动已有节点，不会重建动画）
+  const order = new Map(visible.map((m, i) => [String(m.id), i]));
+  [...wall.querySelectorAll(".wish-card")]
+    .sort((a, b) => (order.get(a.dataset.id) ?? 1e9) - (order.get(b.dataset.id) ?? 1e9))
+    .forEach((el) => wall.appendChild(el));
+
+  updateWallScroll();
+}
+
+/** 判断小窗口里是否还有内容可滑：有就在底部显示渐隐 + 提示语 */
+function updateWallScroll() {
+  const wall = $("wall"), wrap = $("wallWrap"), hint = $("wallHint");
+  if (!wall || !wrap) return;
+  const more = wall.scrollHeight > wall.clientHeight + 8;
+  wrap.classList.toggle("has-more", more);
+  // 已经滑到底了就把渐隐收掉，别挡住最后一条
+  const atBottom = wall.scrollTop + wall.clientHeight >= wall.scrollHeight - 8;
+  wrap.classList.toggle("at-bottom", more && atBottom);
+  if (hint && !hint.dataset.locked) hint.hidden = !more;
+}
+
+function setupWallScroll() {
+  const wall = $("wall");
+  if (!wall) return;
+  wall.addEventListener("scroll", () => updateWallScroll(), { passive: true });
+  let raf = null;
+  addEventListener("resize", () => {
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(updateWallScroll);
+  });
+  if (C.wall && C.wall.maxHeight) {
+    document.documentElement.style.setProperty("--wall-h", C.wall.maxHeight);
+  }
+}
+
+/* ---------------- 4.5 留言管理（管理员删除） ----------------
+ * 登录用的是 Supabase 后台建的管理员账号，密码不在代码里，别人翻源码也删不了。
+ * 没接云端（本地模式）时点「管理」直接进入，但只能删自己浏览器里的数据。 */
+let adminMode = false;
+let pendingDelete = null;
+
+function makeDelBtn(id, card, msg) {
+  const b = document.createElement("button");
+  b.className = "card-del";
+  b.type = "button";
+  b.title = "删除这条留言";
+  b.setAttribute("aria-label", "删除这条留言");
+  b.textContent = "×";
+  b.addEventListener("click", () => askDelete(id, card, msg));
+  return b;
+}
+
+function setAdminUI() {
+  document.body.classList.toggle("is-admin", adminMode);
+  const entry = $("adminEntry"), exit = $("adminExit"), chip = $("adminChip");
+  if (entry) entry.hidden = adminMode;
+  if (exit) exit.hidden = !adminMode;
+  if (chip) chip.hidden = !adminMode;
+}
+
+/** 整墙重画：进入/退出管理模式时，之前渲染好的卡片上没有删除按钮 */
+async function rerenderWall() {
+  renderedIds = new Set();
+  document.querySelectorAll("#wall .wish-card").forEach((el) => el.remove());
+  try {
+    renderWall(await Store.getMessages());
+  } catch (e) { console.warn("[管理员] 重新拉取留言失败：", e); }
+}
+
+async function enterAdmin() {
+  adminMode = true;
+  setAdminUI();
+  await rerenderWall();
+}
+
+async function exitAdmin() {
+  await Store.signOut();
+  adminMode = false;
+  setAdminUI();
+  await rerenderWall();
+  toast("已退出管理模式");
+}
+
+function askDelete(id, card, msg) {
+  pendingDelete = { id, card };
+  const who = (msg && msg.name) || "匿名好友";
+  const t = (msg && msg.text) || "";
+  $("confirmText").textContent = `${who}：${t.length > 40 ? t.slice(0, 40) + "…" : t}`;
+  openModal("confirmModal");
+}
+
+async function doDelete() {
+  if (!pendingDelete) return;
+  const { id, card } = pendingDelete;
+  pendingDelete = null;
+  closeModal("confirmModal");
+  try {
+    await Store.deleteMessage(id);
+    renderedIds.delete(String(id));       // 别让下一轮轮询把它加回来
+    card.remove();
+    const c = $("wallCount");
+    const n = Math.max(0, Number(c.textContent || 0) - 1);
+    c.textContent = n;
+    $("wallEmpty").hidden = n > 0;
+    toast("已删除 ✨");
+  } catch (e) {
+    console.warn(e);
+    toast(e.message || "删除失败，再试一次？");
+  }
+}
+
+function setupAdmin() {
+  if (!(C.admin && C.admin.enabled)) return;   // 关掉就不显示入口（HTML 里默认 hidden）
+  const cloud = Store.isCloud();
+  const entry = $("adminEntry");
+  entry.textContent = C.admin.entryText || "管理";
+  entry.hidden = false;
+
+  entry.addEventListener("click", () => {
+    $("adminErr").textContent = "";
+    if (!cloud) {                               // 本地预览：不用登录，但只影响本机数据
+      enterAdmin();
+      toast("本地模式：只能删你自己浏览器里的留言");
+      return;
+    }
+    openModal("adminModal");
+  });
+  $("adminExit").addEventListener("click", exitAdmin);
+  $("confirmYes").addEventListener("click", doDelete);
+
+  $("adminForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = $("adminEmail").value.trim();
+    const pwd = $("adminPwd").value;
+    const err = $("adminErr"), btn = $("adminLoginBtn");
+    if (!email || !pwd) { err.textContent = "邮箱和密码都要填哦"; return; }
+    err.textContent = "";
+    btn.disabled = true; btn.textContent = "登录中…";
+    try {
+      await Store.signIn(email, pwd);
+      $("adminPwd").value = "";                 // 密码用完就从输入框清掉
+      closeModal("adminModal");
+      await enterAdmin();
+      toast("管理模式已开启，每条留言右上角的 × 可以删 🛠");
+    } catch (e2) {
+      err.textContent = e2.message || "登录失败";
+    } finally {
+      btn.disabled = false; btn.textContent = "登录";
+    }
+  });
+
+  // 之前登录过（票据还在）→ 直接恢复管理模式，省得每次生日都要登录
+  if (cloud && Store.isAdmin()) enterAdmin();
+  else setAdminUI();
 }
 
 /* ---------------- 5. 弹窗 ---------------- */
@@ -486,6 +650,9 @@ async function init() {
 
   const { messages, candles } = await refresh();
   lastCandleCount = candles.count;
+
+  setupAdmin();          // 留言管理入口（要等 Store.init 定完云端/本地模式）
+  setupWallScroll();     // 祝福墙小窗口（判断是否还有内容可滑）
 
   if (isBirthdayToday(new Date())) Confetti.rain(2.5);
 

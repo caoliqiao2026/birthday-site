@@ -1,10 +1,13 @@
 /* =============================================================
  *  store.js —— 数据存储抽象层
- *  对外只暴露 5 个方法，上层不关心数据存在哪：
+ *  对外只暴露这些方法，上层不关心数据存在哪：
  *    Store.getMessages()          取留言列表
  *    Store.addMessage({name,text}) 写留言
+ *    Store.deleteMessage(id)      删留言（要管理员登录）
  *    Store.getCandles()           取蜡烛数（含我是否点过）
  *    Store.lightCandle()          点蜡烛（一人只能点一根）
+ *    Store.signIn(email,pwd)      管理员登录（Supabase Auth）
+ *    Store.signOut() / isAdmin()  退出 / 是否已登录
  *    Store.onChange(cb)           订阅变更（轮询实现）
  * ============================================================= */
 
@@ -49,6 +52,13 @@ const Store = (() => {
       local.write(LS.candles, ids);
       local.write(LS.mine, true);
       return { count: ids.length, mine: true };
+    },
+    async deleteMessage(id) {
+      const list = local.read(LS.messages, []);
+      const next = list.filter((m) => String(m.id) !== String(id));
+      if (next.length === list.length) throw new Error("找不到这条留言");
+      local.write(LS.messages, next);
+      return true;
     },
   };
 
@@ -113,7 +123,71 @@ const Store = (() => {
       if (!r.ok && r.status !== 409) throw new Error("candles POST " + r.status);
       return sb.getCandles();
     },
+    /** 删留言：必须带上管理员登录后拿到的 access_token，否则 RLS 会让它删不动 */
+    async deleteMessage(id, token) {
+      const s = C.storage.supabase;
+      const r = await fetch(`${s.url}/rest/v1/messages?id=eq.${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: {
+          apikey: s.anonKey,
+          Authorization: "Bearer " + token,
+          Prefer: "return=representation",
+        },
+      });
+      if (!r.ok) {
+        const t = await r.text().catch(() => "");
+        throw new Error("删除失败 " + r.status + (t ? "：" + t.slice(0, 120) : ""));
+      }
+      const rows = await r.json().catch(() => null);
+      if (rows && rows.length === 0) throw new Error("没删动：这个账号没有删除权限");
+      return true;
+    },
   };
+
+  /* ---------- 管理员登录（Supabase Auth） ----------
+   * 密码只在登录那一次发出去，不写进任何配置文件；
+   * 删留言时用的是 Supabase 签发的临时票据（默认 1 小时过期，会自动续期）。 */
+  const AUTH = { tok: "bday_admin_tok", ref: "bday_admin_ref", exp: "bday_admin_exp" };
+  let admin = null;
+
+  function jwtExp(tok) {
+    try {
+      const p = JSON.parse(atob(tok.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+      return Number(p.exp) * 1000;
+    } catch { return 0; }
+  }
+  function adminLoad() {
+    if (admin) return admin;
+    const t = lsGet(AUTH.tok);
+    if (!t) return null;
+    admin = { access: t, refresh: lsGet(AUTH.ref) || "", exp: Number(lsGet(AUTH.exp) || 0) };
+    return admin;
+  }
+  function adminSave(a) {
+    admin = a;
+    if (a) {
+      lsSet(AUTH.tok, a.access); lsSet(AUTH.ref, a.refresh || ""); lsSet(AUTH.exp, String(a.exp || 0));
+    } else {
+      lsSet(AUTH.tok, ""); lsSet(AUTH.ref, ""); lsSet(AUTH.exp, "0");
+    }
+  }
+  async function adminRefresh() {
+    const a = adminLoad();
+    if (!a || !a.refresh) return false;
+    const s = C.storage.supabase;
+    try {
+      const r = await fetch(`${s.url}/auth/v1/token?grant_type=refresh_token`, {
+        method: "POST", headers: sb.headers(), body: JSON.stringify({ refresh_token: a.refresh }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.access_token) throw new Error("票据已过期");
+      adminSave({ access: j.access_token, refresh: j.refresh_token || a.refresh, exp: jwtExp(j.access_token) });
+      return true;
+    } catch {
+      adminSave(null);
+      return false;
+    }
+  }
 
   /* ---------- 访客 ID（只存在本地，用于一人一根蜡烛） ---------- */
   let _vid = null;
@@ -169,6 +243,52 @@ const Store = (() => {
     addMessage: (m) => call("addMessage", m),
     getCandles: () => call("getCandles"),
     lightCandle: () => call("lightCandle"),
+
+    /* ---------- 管理员 ---------- */
+    /** 是否已登录管理员（只表示本地有有效票据，真正的权限由 Supabase 判定） */
+    isAdmin: () => !!adminLoad(),
+    /** 是否跑在云端（本地模式下也能删，但只删自己浏览器里的数据） */
+    isCloud: () => mode === "supabase",
+
+    async signIn(email, password) {
+      if (mode !== "supabase") throw new Error("现在是本地模式，登录不了云端管理员");
+      const s = C.storage.supabase;
+      const r = await fetch(`${s.url}/auth/v1/token?grant_type=password`, {
+        method: "POST", headers: sb.headers(), body: JSON.stringify({ email, password }),
+      });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.access_token) {
+        const msg = j.error_description || j.msg || j.message || "登录失败";
+        if (/email not confirmed/i.test(msg)) throw new Error("这个邮箱还没验证：请在 Supabase 后台把该用户的 Email Confirmed 勾上");
+        if (/invalid login/i.test(msg)) throw new Error("邮箱或密码不对");
+        throw new Error(msg);
+      }
+      adminSave({ access: j.access_token, refresh: j.refresh_token, exp: jwtExp(j.access_token) });
+      return true;
+    },
+
+    async signOut() {
+      const a = adminLoad();
+      if (a && mode === "supabase") {
+        const s = C.storage.supabase;
+        try {
+          await fetch(`${s.url}/auth/v1/logout`, { method: "POST", headers: sb.headers({ Authorization: "Bearer " + a.access }) });
+        } catch {}
+      }
+      adminSave(null);
+    },
+
+    async deleteMessage(id) {
+      if (mode === "supabase") {
+        let a = adminLoad();
+        if (!a) throw new Error("请先登录管理员");
+        // 快过期就先续一下，避免删一半票据失效
+        if (a.exp && Date.now() > a.exp - 30000) { await adminRefresh(); a = adminLoad(); }
+        if (!a) throw new Error("登录状态过期了，请重新登录");
+        return sb.deleteMessage(id, a.access);
+      }
+      return local.deleteMessage(id);
+    },
 
     /** 定时拉取最新数据，有变化才回调（省掉无意义的重渲染） */
     onChange(cb) {

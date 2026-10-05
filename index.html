@@ -126,13 +126,23 @@
   <section class="section">
     <div class="wall-head">
       <h2 class="section-title"><em>03</em>祝福墙</h2>
-      <span class="wall-count"><b id="wallCount">0</b> 条祝福</span>
-    </div>
-    <div class="wall" id="wall">
-      <div class="wall-empty" id="wallEmpty">
-        <p>还没有人留言～</p><small>来做第一个吧 💌</small>
+      <div class="wall-tools">
+        <span class="wall-count"><b id="wallCount">0</b> 条祝福</span>
+        <button class="wall-admin" id="adminEntry" type="button" hidden>管理</button>
+        <span class="admin-chip" id="adminChip" hidden>🛠 管理模式</span>
+        <button class="wall-admin" id="adminExit" type="button" hidden>退出</button>
       </div>
     </div>
+    <!-- 固定高度的小窗口：祝福再多，页面长度也不变，在框里上下滑就能看更多 -->
+    <div class="wall-wrap" id="wallWrap">
+      <div class="wall" id="wall">
+        <div class="wall-empty" id="wallEmpty">
+          <p>还没有人留言～</p><small>来做第一个吧 💌</small>
+        </div>
+      </div>
+      <div class="wall-fade" aria-hidden="true"></div>
+    </div>
+    <p class="wall-hint" id="wallHint" hidden>上下滑动，看更多祝福 ↕</p>
   </section>
 
   <!-- ============ 小游戏：接礼物（写完祝福后解锁） ============ -->
@@ -226,6 +236,39 @@
     <h3 id="eggTitle"></h3>
     <p class="modal-text" id="eggText"></p>
     <button class="btn btn-primary" data-close>好耶！🎊</button>
+  </div>
+</div>
+
+<!-- ============ 弹窗：管理员登录 ============ -->
+<div class="modal" id="adminModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="adminTitle">
+    <div class="modal-emoji">🛠</div>
+    <h3 id="adminTitle">管理登录</h3>
+    <p class="modal-text" id="adminTip">用你在 Supabase 后台建的管理员账号登录，登录后每条留言上会出现 × 可以删除。密码不会保存在网页里。</p>
+    <form class="admin-form" id="adminForm" novalidate>
+      <div class="field">
+        <label for="adminEmail">管理员邮箱</label>
+        <input id="adminEmail" type="email" autocomplete="username" placeholder="you@example.com" />
+      </div>
+      <div class="field">
+        <label for="adminPwd">密码</label>
+        <input id="adminPwd" type="password" autocomplete="current-password" placeholder="登录密码" />
+      </div>
+      <p class="admin-err" id="adminErr"></p>
+      <button class="btn btn-primary" id="adminLoginBtn" type="submit">登录</button>
+      <button class="btn btn-ghost" type="button" data-close>取消</button>
+    </form>
+  </div>
+</div>
+
+<!-- ============ 弹窗：删除确认 ============ -->
+<div class="modal" id="confirmModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <div class="modal-emoji">🗑️</div>
+    <h3 id="confirmTitle">删掉这条留言？</h3>
+    <p class="modal-text" id="confirmText"></p>
+    <button class="btn btn-primary" id="confirmYes" type="button">删掉</button>
+    <button class="btn btn-ghost" type="button" data-close>再想想</button>
   </div>
 </div>
 
